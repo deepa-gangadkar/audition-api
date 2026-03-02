@@ -7,9 +7,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentMatchers;
+import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
-import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
@@ -26,49 +25,64 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(SpringExtension.class)
-@SpringBootTest
-public class AuditionIntegrationClientTest {
+class AuditionIntegrationClientTest {
+
+    @Mock
     private RestTemplate restTemplate;
+
     private AuditionIntegrationClient client;
+
+    private final ParameterizedTypeReference<List<AuditionPost>> postListType =
+            new ParameterizedTypeReference<>() {};
+    private final ParameterizedTypeReference<List<Comment>> commentListType =
+            new ParameterizedTypeReference<>() {};
 
     @BeforeEach
     void setUp() {
         MockitoAnnotations.openMocks(this);
-        restTemplate = mock(RestTemplate.class);
         client = new AuditionIntegrationClient(restTemplate);
     }
 
-    // -----------------------------
+    // Helper methods for test data
+    private AuditionPost createPost(int id) {
+        AuditionPost post = new AuditionPost();
+        post.setId(id);
+        return post;
+    }
+
+    private Comment createComment() {
+        return new Comment();
+    }
+
     // getPosts tests
-    // -----------------------------
     @Test
     @DisplayName("getPosts returns list of posts successfully")
-    void testGetPostsSuccess() {
-        List<AuditionPost> mockPosts = List.of(new AuditionPost(), new AuditionPost());
+    void getPosts_returnsList() {
+        List<AuditionPost> mockPosts = List.of(createPost(1), createPost(2));
         ResponseEntity<List<AuditionPost>> responseEntity = ResponseEntity.ok(mockPosts);
 
         when(restTemplate.exchange(
                 eq("https://jsonplaceholder.typicode.com/posts"),
                 eq(HttpMethod.GET),
-                isNull(),
-                ArgumentMatchers.<ParameterizedTypeReference<List<AuditionPost>>>any()
+                eq(null),
+                eq(postListType)
         )).thenReturn(responseEntity);
 
         List<AuditionPost> posts = client.getPosts();
 
-        assertThat(posts).isNotNull().hasSize(2);
+        assertThat(posts).hasSize(2);
     }
 
     @Test
     @DisplayName("getPosts returns empty list when API returns null body")
-    void testGetPostsNullBody() {
+    void getPosts_returnsEmptyListOnNullBody() {
         ResponseEntity<List<AuditionPost>> responseEntity = ResponseEntity.ok(null);
 
         when(restTemplate.exchange(
                 eq("https://jsonplaceholder.typicode.com/posts"),
                 eq(HttpMethod.GET),
-                isNull(),
-                ArgumentMatchers.<ParameterizedTypeReference<List<AuditionPost>>>any()
+                eq(null),
+                eq(postListType)
         )).thenReturn(responseEntity);
 
         List<AuditionPost> posts = client.getPosts();
@@ -78,9 +92,12 @@ public class AuditionIntegrationClientTest {
 
     @Test
     @DisplayName("getPosts throws SystemException on RestClientException")
-    void testGetPostsRestClientException() {
+    void getPosts_throwsSystemException() {
         when(restTemplate.exchange(
-                anyString(), any(HttpMethod.class), any(), any(ParameterizedTypeReference.class)
+                anyString(),
+                any(HttpMethod.class),
+                any(),
+                any(ParameterizedTypeReference.class)
         )).thenThrow(new RestClientException("API down"));
 
         assertThatThrownBy(client::getPosts)
@@ -88,13 +105,11 @@ public class AuditionIntegrationClientTest {
                 .hasMessageContaining("Failed to fetch posts");
     }
 
-    // -----------------------------
     // getPostById tests
-    // -----------------------------
     @Test
     @DisplayName("getPostById returns post successfully")
-    void testGetPostByIdSuccess() {
-        AuditionPost post = new AuditionPost();
+    void getPostById_returnsPost() {
+        AuditionPost post = createPost(1);
         when(restTemplate.getForObject(anyString(), eq(AuditionPost.class), eq("1"))).thenReturn(post);
 
         AuditionPost result = client.getPostById("1");
@@ -104,8 +119,9 @@ public class AuditionIntegrationClientTest {
 
     @Test
     @DisplayName("getPostById throws SystemException for 404 NOT_FOUND")
-    void testGetPostByIdNotFound() {
-        HttpClientErrorException notFound = HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found", null, null, null);
+    void getPostById_throwsNotFound() {
+        HttpClientErrorException notFound = HttpClientErrorException.create(HttpStatus.NOT_FOUND, "Not Found",
+                null, null, null);
         when(restTemplate.getForObject(anyString(), eq(AuditionPost.class), eq("1")))
                 .thenThrow(notFound);
 
@@ -116,8 +132,9 @@ public class AuditionIntegrationClientTest {
 
     @Test
     @DisplayName("getPostById throws SystemException for other HttpClientErrorException")
-    void testGetPostByIdClientError() {
-        HttpClientErrorException clientError = HttpClientErrorException.create(HttpStatus.BAD_REQUEST, "Bad Request", null, null, null);
+    void getPostById_throwsClientError() {
+        HttpClientErrorException clientError = HttpClientErrorException.create(HttpStatus.BAD_REQUEST,
+                "Bad Request", null, null, null);
         when(restTemplate.getForObject(anyString(), eq(AuditionPost.class), eq("1")))
                 .thenThrow(clientError);
 
@@ -128,7 +145,7 @@ public class AuditionIntegrationClientTest {
 
     @Test
     @DisplayName("getPostById throws SystemException for RestClientException")
-    void testGetPostByIdRestClientException() {
+    void getPostById_throwsRestClientException() {
         when(restTemplate.getForObject(anyString(), eq(AuditionPost.class), eq("1")))
                 .thenThrow(new RestClientException("Timeout"));
 
@@ -137,23 +154,20 @@ public class AuditionIntegrationClientTest {
                 .hasMessageContaining("Unexpected error while fetching post");
     }
 
-    // -----------------------------
     // getPostWithComments tests
-    // -----------------------------
     @Test
     @DisplayName("getPostWithComments returns post with comments")
-    void testGetPostWithCommentsSuccess() {
-        AuditionPost post = new AuditionPost();
-        post.setId(1);
+    void getPostWithComments_returnsPostWithComments() {
+        AuditionPost post = createPost(1);
 
         when(restTemplate.getForObject(anyString(), eq(AuditionPost.class), eq("1"))).thenReturn(post);
-        ResponseEntity<List<Comment>> responseEntity = ResponseEntity.ok(List.of(new Comment(), new Comment()));
+        ResponseEntity<List<Comment>> responseEntity = ResponseEntity.ok(List.of(createComment(), createComment()));
 
         when(restTemplate.exchange(
                 eq("https://jsonplaceholder.typicode.com/posts/{postId}/comments"),
                 eq(HttpMethod.GET),
-                isNull(),
-                ArgumentMatchers.<ParameterizedTypeReference<List<Comment>>>any(),
+                eq(null),
+                eq(commentListType),
                 eq("1")
         )).thenReturn(responseEntity);
 
@@ -164,9 +178,8 @@ public class AuditionIntegrationClientTest {
 
     @Test
     @DisplayName("getPostWithComments handles null comments as empty list")
-    void testGetPostWithCommentsNullComments() {
-        AuditionPost post = new AuditionPost();
-        post.setId(1);
+    void getPostWithComments_handlesNullComments() {
+        AuditionPost post = createPost(1);
 
         when(restTemplate.getForObject(anyString(), eq(AuditionPost.class), eq("1"))).thenReturn(post);
         ResponseEntity<List<Comment>> responseEntity = ResponseEntity.ok(null);
@@ -174,8 +187,8 @@ public class AuditionIntegrationClientTest {
         when(restTemplate.exchange(
                 eq("https://jsonplaceholder.typicode.com/posts/{postId}/comments"),
                 eq(HttpMethod.GET),
-                isNull(),
-                ArgumentMatchers.<ParameterizedTypeReference<List<Comment>>>any(),
+                eq(null),
+                eq(commentListType),
                 eq("1")
         )).thenReturn(responseEntity);
 
@@ -184,19 +197,17 @@ public class AuditionIntegrationClientTest {
         assertThat(result.getComments()).isEmpty();
     }
 
-    // -----------------------------
     // getCommentsByPostId tests
-    // -----------------------------
     @Test
     @DisplayName("getCommentsByPostId returns list of comments")
-    void testGetCommentsByPostIdSuccess() {
-        ResponseEntity<List<Comment>> responseEntity = ResponseEntity.ok(List.of(new Comment(), new Comment()));
+    void getCommentsByPostId_returnsComments() {
+        ResponseEntity<List<Comment>> responseEntity = ResponseEntity.ok(List.of(createComment(), createComment()));
 
         when(restTemplate.exchange(
                 eq("https://jsonplaceholder.typicode.com/comments?postId={postId}"),
                 eq(HttpMethod.GET),
-                isNull(),
-                ArgumentMatchers.<ParameterizedTypeReference<List<Comment>>>any(),
+                eq(null),
+                eq(commentListType),
                 eq("1")
         )).thenReturn(responseEntity);
 
@@ -207,7 +218,7 @@ public class AuditionIntegrationClientTest {
 
     @Test
     @DisplayName("getCommentsByPostId handles null response body as empty list")
-    void testGetCommentsByPostIdNullBody() {
+    void getCommentsByPostId_handlesNullBody() {
         ResponseEntity<List<Comment>> responseEntity = ResponseEntity.ok(null);
 
         when(restTemplate.exchange(
@@ -221,7 +232,7 @@ public class AuditionIntegrationClientTest {
 
     @Test
     @DisplayName("getCommentsByPostId throws SystemException on RestClientException")
-    void testGetCommentsByPostIdRestClientException() {
+    void getCommentsByPostId_throwsSystemException() {
         when(restTemplate.exchange(
                 anyString(), any(HttpMethod.class), any(), any(ParameterizedTypeReference.class), eq("1")
         )).thenThrow(new RestClientException("API down"));

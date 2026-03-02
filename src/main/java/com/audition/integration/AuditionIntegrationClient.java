@@ -2,19 +2,17 @@ package com.audition.integration;
 
 import com.audition.common.exception.SystemException;
 import com.audition.model.AuditionPost;
-import java.util.ArrayList;
+
 import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 
 import com.audition.model.Comment;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
-import org.springframework.stereotype.Component;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
 import org.springframework.web.client.RestClientException;
@@ -45,12 +43,7 @@ public class AuditionIntegrationClient {
                     .orElse(Collections.emptyList());
 
         } catch (RestClientException ex) {
-            log.error("Error fetching posts", ex);
-            throw new SystemException(
-                    "Failed to fetch posts",
-                    ex.getMessage(),
-                    HttpStatus.INTERNAL_SERVER_ERROR.value()
-            );
+            throw handleGenericRestException("Error fetching posts", "Failed to fetch posts", ex);
         }
     }
 
@@ -61,33 +54,24 @@ public class AuditionIntegrationClient {
                     AuditionPost.class,
                     id
             );
-        } catch (final HttpClientErrorException e) {
-            if (e.getStatusCode() == HttpStatus.NOT_FOUND) {
-                throw new SystemException("Cannot find a Post with id " + id,
-                        e.getResponseBodyAsString(),
-                        HttpStatus.NOT_FOUND.value()
-                );
-            } log.error("Client error fetching post {}", id, e);
-            throw new SystemException(
-                    "Client error while fetching post",
-                    e.getResponseBodyAsString(),
-                    e.getStatusCode().value()
+        } catch (final HttpClientErrorException ex) {
+            throw handleHttpClientErrorException(
+                    ex,
+                    "Error fetching post " + id,
+                    "Cannot find a Post with id " + id
             );
 
-        } catch (RestClientException e) {
-            log.error("Unexpected error fetching post {}", id, e);
-            throw new SystemException(
+        } catch (RestClientException ex) {
+            throw handleGenericRestException(
+                    "Unexpected error fetching post " + id,
                     "Unexpected error while fetching post",
-                    e.getMessage(),
-                    HttpStatus.INTERNAL_SERVER_ERROR.value()
+                    ex
             );
         }
     }
 
     public AuditionPost getPostWithComments(final String postId) {
-
         AuditionPost post = getPostById(postId);
-
         ResponseEntity<List<Comment>> response =
                 restTemplate.exchange(
                         BASE_URL + "/posts/{postId}/comments",
@@ -100,9 +84,7 @@ public class AuditionIntegrationClient {
         List<Comment> comments =
                 Optional.ofNullable(response.getBody())
                         .orElse(Collections.emptyList());
-
         post.setComments(comments);
-
         return post;
     }
 
@@ -122,12 +104,49 @@ public class AuditionIntegrationClient {
                     .orElse(Collections.emptyList());
 
         } catch (RestClientException ex) {
-            log.error("Error fetching comments for post {}", postId, ex);
-            throw new SystemException(
+            throw handleGenericRestException(
+                    "Error fetching comments for post " + postId,
                     "Failed to fetch comments",
-                    ex.getMessage(),
-                    HttpStatus.INTERNAL_SERVER_ERROR.value()
+                    ex
             );
         }
+    }
+
+    /* =========================
+       Exception Handling Logic
+       ========================= */
+    private SystemException handleGenericRestException(
+            String logMessage,
+            String clientMessage,
+            RestClientException ex
+    ) {
+        log.error(logMessage, ex);
+        return new SystemException(
+                clientMessage,
+                ex.getMessage(),
+                HttpStatus.INTERNAL_SERVER_ERROR.value()
+        );
+    }
+
+    private SystemException handleHttpClientErrorException(
+            HttpClientErrorException ex,
+            String logMessage,
+            String notFoundMessage
+    ) {
+        if (ex.getStatusCode() == HttpStatus.NOT_FOUND) {
+            log.warn(logMessage + " - NOT FOUND", ex);
+            return new SystemException(
+                    notFoundMessage,
+                    ex.getResponseBodyAsString(),
+                    HttpStatus.NOT_FOUND.value()
+            );
+        }
+
+        log.error(logMessage, ex);
+        return new SystemException(
+                "Client error while fetching post",
+                ex.getResponseBodyAsString(),
+                ex.getStatusCode().value()
+        );
     }
 }

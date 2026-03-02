@@ -13,10 +13,13 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.client.HttpClientErrorException;
 
-import java.net.URI;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.Mockito.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
 
 public class ExceptionControllerAdviceTest {
     private ExceptionControllerAdvice advice;
@@ -34,7 +37,7 @@ public class ExceptionControllerAdviceTest {
     }
 
     // ---------------------------------------
-    // HttpClientErrorException tests
+    // HttpClientErrorException tests.
     // ---------------------------------------
     @Test
     @DisplayName("handleHttpClientErrorException should return ProblemDetail with status from exception")
@@ -54,7 +57,7 @@ public class ExceptionControllerAdviceTest {
     }
 
     // ---------------------------------------
-    // Generic Exception tests
+    // Generic Exception tests.
     // ---------------------------------------
     @Test
     @DisplayName("handleGenericException should return INTERNAL_SERVER_ERROR for unknown exception")
@@ -93,7 +96,7 @@ public class ExceptionControllerAdviceTest {
     }
 
     // ----------------------------
-    // SystemException tests
+    // SystemException tests.
     // ----------------------------
     @Test
     @DisplayName("handleSystemException returns correct status and title")

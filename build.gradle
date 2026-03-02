@@ -39,19 +39,14 @@ ext {
 
 dependencies {
 
-    // TODO Clean up unused dependencies. Add comments on consideration on any improvements you made.
     implementation "org.springframework.boot:spring-boot-starter-actuator"
-    implementation "org.springframework.boot:spring-boot-starter-data-jpa"
     implementation "org.springframework.boot:spring-boot-starter-web"
     implementation "org.springframework.cloud:spring-cloud-starter-config"
-    implementation "org.springframework.boot:spring-boot-starter-webflux"
     implementation "org.springframework.boot:spring-boot-starter-aop"
     implementation "io.micrometer:micrometer-tracing-bridge-brave"
     implementation "io.micrometer:micrometer-tracing"
     implementation "io.micrometer:micrometer-registry-prometheus"
     implementation "io.micrometer:context-propagation"
-    implementation "org.springframework.cloud:spring-cloud-starter-circuitbreaker-reactor-resilience4j"
-    implementation "org.springframework.cloud:spring-cloud-starter-config"
     implementation "org.springdoc:springdoc-openapi-starter-webmvc-ui:${springdocVersion}"
     implementation "io.opentelemetry:opentelemetry-api"
 
@@ -63,7 +58,7 @@ dependencies {
     implementation "ch.qos.logback:logback-classic:${logbackVersion}"
 
     testImplementation "org.springframework.boot:spring-boot-starter-test"
-    testImplementation "io.projectreactor:reactor-test"
+    testImplementation "org.mockito:mockito-inline"
 }
 
 dependencyManagement {
@@ -72,14 +67,12 @@ dependencyManagement {
     }
 }
 
-
 task prepareGitHooks(type: Copy) {
     from "$projectDir/git-hooks"
     into "$projectDir/.git/hooks"
     include "*"
 }
 tasks.matching { it.name != 'prepareGitHooks' }.all { Task task -> task.dependsOn prepareGitHooks }
-
 
 tasks.named('test') {
     useJUnitPlatform()
